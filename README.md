@@ -7,4 +7,4 @@ This compressed file contains all the collected tags for WordPress images. In or
 ## Load Tester
 This code is used to automate the process of deploying different WordPress image tags and measuring the performance metrics during the load test. 
 ## Data Summary
-This excel sheet contains all the image tags that are studied in our paper along with the number of images with specific dependency versions. 
+These excel sheets contains all the image tags that are studied in our paper along with the number of images with specific dependency versions. Also the results of duplicate image analysis and three repetition of the experiment is included. 
