@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels: {app: wordpress}
+  name: wordpress
+spec:
+  selector:
+    matchLabels: {app: wordpress, tier: frontend}
+  strategy: {type: Recreate}
+  template:
+    metadata:
+      labels: {app: wordpress, tier: frontend}
+    spec:
+      containers:
+      - image: wordpress:4.5.3-apache
+        name: wordpress
+        ports:
+        - {containerPort: 80, name: wordpress}
+        resources:
+          limits: {cpu: 400m, memory: 256Mi}
+          requests: {cpu: 200m, memory: 128Mi}
+        volumeMounts:
+        - {mountPath: /var/www/html/wp-config.php, name: wordpress-config-volume,
+          subPath: wp-config.php}
+      nodeSelector: {type: wp}
+      volumes:
+      - configMap: {name: wp-config}
+        name: wordpress-config-volume
