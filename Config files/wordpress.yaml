@@ -1,0 +1,194 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: wp-config
+data:
+  wp-config.php: |
+    <?php
+    /**
+    * The base configuration for WordPress
+    *
+    * The wp-config.php creation script uses this file during the
+    * installation. You don't have to use the web site, you can
+    * copy this file to "wp-config.php" and fill in the values.
+    *
+    * This file contains the following configurations:
+    *
+    * * MySQL settings
+    * * Secret keys
+    * * Database table prefix
+    * * ABSPATH
+    *
+    * @link https://codex.wordpress.org/Editing_wp-config.php
+    *
+    * @package WordPress
+    */
+
+    // ** MySQL settings - You can get this info from your web host ** //
+    /** The name of the database for WordPress */
+    define( 'DB_NAME', 'wordpress');
+
+    /** MySQL database username */
+    define( 'DB_USER', 'root');
+
+    /** MySQL database password */
+    define( 'DB_PASSWORD', 'aStr0ngPassW0rd');
+
+    /** MySQL hostname */
+    define( 'DB_HOST', 'wordpress-mysql.default.svc.cluster.local');
+
+    /** Database Charset to use in creating database tables. */
+    define( 'DB_CHARSET', 'utf8');
+
+    /** The Database Collate type. Don't change this if in doubt. */
+    define( 'DB_COLLATE', '');
+
+    /**#@+
+    * Authentication Unique Keys and Salts.
+    *
+    * Change these to different unique phrases!
+    * You can generate these using the {@link https://api.wordpress.org/secret-key/1.1/salt/ WordPress.org secret-key service}
+    * You can change these at any point in time to invalidate all existing cookies. This will force all users to have to log in again.
+    *
+    * @since 2.6.0
+    */
+    define( 'AUTH_KEY',         'b01e1c8ba1c4398d395ab28d79be8c4e294695a4');
+    define( 'SECURE_AUTH_KEY',  '659489f602c19ac7d8c5629ba86045a3034e861b');
+    define( 'LOGGED_IN_KEY',    '7e8dce5a33f95de2e5691f868dba45fadbb04c50');
+    define( 'NONCE_KEY',        '1c4de96303a7b74b287945e4bef576b2b8bf4ee7');
+    define( 'AUTH_SALT',        '106e879e895e4bd6e9f3dee97456cf25df06a769');
+    define( 'SECURE_AUTH_SALT', 'b10a0e76fad764cb253f960ed191b7df26bb2258');
+    define( 'LOGGED_IN_SALT',   '75d933dec2647765f7be58957ef91fa1f4d9497d');
+    define( 'NONCE_SALT',       '3ecdcbfc54a49bd638c3cc05e19722a70d839893');
+
+    /**#@-*/
+
+    /**
+    * WordPress Database Table prefix.
+    *
+    * You can have multiple installations in one database if you give each
+    * a unique prefix. Only numbers, letters, and underscores please!
+    */
+    $table_prefix = 'wp_';
+
+    /**
+    * For developers: WordPress debugging mode.
+    *
+    * Change this to true to enable the display of notices during development.
+    * It is strongly recommended that plugin and theme developers use WP_DEBUG
+    * in their development environments.
+    *
+    * For information on other constants that can be used for debugging,
+    * visit the Codex.
+    *
+    * @link https://codex.wordpress.org/Debugging_in_WordPress
+    */
+    define( 'WP_DEBUG', false );
+
+    // If we're behind a proxy server and using HTTPS, we need to alert Wordpress of that fact
+    // see also http://codex.wordpress.org/Administration_Over_SSL#Using_a_Reverse_Proxy
+    if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            $_SERVER['HTTPS'] = 'on';
+    }
+
+    /* That's all, stop editing! Happy publishing. */
+
+    /** Absolute path to the WordPress directory. */
+    if ( ! defined( 'ABSPATH' ) ) {
+            define( 'ABSPATH', dirname( __FILE__ ) . '/' );
+    }
+
+    /** Sets up WordPress vars and included files. */
+    require_once( ABSPATH . 'wp-settings.php' );
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  #namespace : wordpress-example
+  labels:
+    app: wordpress
+spec:
+  ports:
+    #- name : http
+    - port: 80
+      nodePort: 30000
+      targetPort : 80
+  selector:
+    app: wordpress
+    tier: frontend
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim
+  labels:
+    app: wordpress
+spec:
+  #storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      nodeSelector:
+        type: 'wp'
+      containers:
+      - image:  wordpress:php7.4-apache
+        name: wordpress
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "150m"
+        # env:
+        # - name: WORDPRESS_DB_HOST
+        #   value: wordpress-mysql
+        # - name: WORDPRESS_DB_PASSWORD
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: mysql-pass
+        #       key: password
+        ports:
+        - containerPort: 80
+          name: wordpress
+        volumeMounts:
+        # - name: wordpress-persistent-storage
+        #   mountPath: /var/www/html
+        - name: wordpress-config-volume
+          mountPath: /var/www/html/wp-config.php
+          subPath: wp-config.php
+      volumes:
+      # - name: wordpress-persistent-storage
+      #   #emptyDir : {}
+      #   persistentVolumeClaim:
+      #     claimName: wp-pv-claim
+      - name: wordpress-config-volume
+        configMap:
+          name: wp-config
